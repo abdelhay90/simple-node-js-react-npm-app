@@ -52,7 +52,7 @@ pipeline {
     }
     stage('Build image and Deploy') {
       when {
-        expression { GIT_BRANCH ==~ /(master)/ }
+        branch 'master'
       }
       steps{
         script {
