@@ -35,6 +35,7 @@ pipeline {
     branch_name = getBranchName()
     // sh(script: 'rev=$(git name-rev --name-only HEAD)', returnStdout: true).trim()
     CI='true'
+
   }
   agent any
   tools {nodejs "node"}
@@ -45,18 +46,33 @@ pipeline {
          println branch_name
          sh 'npm install'
        }
+       post {
+        failure {
+            jiraSendBuildInfo site: 'super-dev.atlassian.net'
+        }
+       }
     }
     stage('Lint') {
       steps {
       updateGithubCommitStatus(currentBuild)
         sh 'npm run lint'
       }
+      post {
+              failure {
+                  jiraSendBuildInfo site: 'super-dev.atlassian.net'
+              }
+             }
     }
     stage('Test') {
       steps {
         updateGithubCommitStatus(currentBuild)
         sh 'npm test'
       }
+      post {
+              failure {
+                  jiraSendBuildInfo site: 'super-dev.atlassian.net'
+              }
+             }
     }
     stage('Build image and Deploy') {
       when {
@@ -70,26 +86,22 @@ pipeline {
           sh 'docker run -d -p 80:80 $registry:$BUILD_NUMBER'
         }
       }
+      post {
+              failure {
+                  jiraSendBuildInfo site: 'super-dev.atlassian.net'
+              }
+             }
     }
+    }
+      post {
+              success {
+                updateGithubCommitStatus(currentBuild)
+                jiraSendBuildInfo site: 'super-dev.atlassian.net'
 
+              }
+              failure {
+                updateGithubCommitStatus(currentBuild)
+                jiraSendBuildInfo site: 'super-dev.atlassian.net'
+              }
+      }
   }
-  post {
-          success {
-            updateGithubCommitStatus(currentBuild)
-          }
-          failure {
-            updateGithubCommitStatus(currentBuild)
-            jiraSendBuildInfo site: 'super-dev.atlassian.net'
-            def testIssue = [fields: [ // id or key must present for project.
-                                           project: [key: 'super-project'],
-                                           summary: 'build failure issue',
-                                           description: 'build failure issue',
-                                           // id or name must present for issueType.
-                                           issuetype: [name: 'issue']]]
-
-            response = jiraNewIssue issue: testIssue
-
-            echo response.successful.toString()
-          }
-  }
-}
